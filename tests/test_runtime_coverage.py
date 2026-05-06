@@ -104,6 +104,7 @@ def test_as_file_uri(tmp_path: Path) -> None:
 
 
 def test_clean_books_csv_chain(monkeypatch) -> None:
+    import sys
     class _FakeDf:
         def withColumnRenamed(self, *_args, **_kwargs):
             return self
@@ -114,10 +115,10 @@ def test_clean_books_csv_chain(monkeypatch) -> None:
         def dropDuplicates(self, *_args, **_kwargs):
             return self
 
-    monkeypatch.setattr(spark_transform.F, "udf", lambda *_args, **_kwargs: (lambda x: x))
-    monkeypatch.setattr(spark_transform.F, "col", lambda *_args, **_kwargs: "col")
-    monkeypatch.setattr(spark_transform.F, "coalesce", lambda *_args, **_kwargs: "coalesce")
-    monkeypatch.setattr(spark_transform.F, "lit", lambda *_args, **_kwargs: "lit")
+    sys.modules['pyspark.sql'].functions.udf = lambda *_args, **_kwargs: (lambda x: x)
+    sys.modules['pyspark.sql'].functions.col = lambda *_args, **_kwargs: "col"
+    sys.modules['pyspark.sql'].functions.coalesce = lambda *_args, **_kwargs: "coalesce"
+    sys.modules['pyspark.sql'].functions.lit = lambda *_args, **_kwargs: "lit"
 
     result = spark_transform.clean_books_csv(_FakeDf())
     assert isinstance(result, _FakeDf)
@@ -133,6 +134,7 @@ def test_transform_and_write_missing_inputs(tmp_path: Path) -> None:
 
 
 def test_transform_and_write_success(monkeypatch, tmp_path: Path) -> None:
+    import sys
     bronze = tmp_path / "bronze"
     (bronze / "books_csv").mkdir(parents=True)
     (bronze / "books_sql").mkdir(parents=True)
@@ -209,11 +211,13 @@ def test_transform_and_write_success(monkeypatch, tmp_path: Path) -> None:
         silver_dir = silver
 
     monkeypatch.setattr(spark_transform, "clean_books_csv", lambda _df: _Df())
-    monkeypatch.setattr(spark_transform.F, "coalesce", lambda *_args, **_kwargs: "coalesce")
-    monkeypatch.setattr(spark_transform.F, "col", lambda *_args, **_kwargs: "col")
-    monkeypatch.setattr(spark_transform.F, "lit", lambda *_args, **_kwargs: "lit")
+    # Monkeypatch pyspark.sql.functions since it's imported inside the function
+    sys.modules['pyspark.sql'].functions.coalesce = lambda *_args, **_kwargs: "coalesce"
+    sys.modules['pyspark.sql'].functions.col = lambda *_args, **_kwargs: "col"
+    sys.modules['pyspark.sql'].functions.lit = lambda *_args, **_kwargs: "lit"
     monkeypatch.setattr(spark_transform, "_normalize_web_dataframe_spark", lambda df: df)
-    monkeypatch.setattr(spark_transform.SparkSession, "builder", _Builder())
+    # Monkeypatch pyspark.sql.SparkSession since it's imported inside the function
+    sys.modules['pyspark.sql'].SparkSession.builder = _Builder()
 
     spark_transform.transform_and_write(_Cfg())
 
@@ -274,6 +278,7 @@ def test_transform_windows_fallback(monkeypatch, tmp_path: Path) -> None:
 
 
 def test_transform_and_write_windows_fallback_branch(monkeypatch, tmp_path: Path) -> None:
+    import sys
     bronze = tmp_path / "bronze"
     (bronze / "books_csv").mkdir(parents=True)
     (bronze / "books_sql").mkdir(parents=True)
@@ -318,8 +323,8 @@ def test_transform_and_write_windows_fallback_branch(monkeypatch, tmp_path: Path
         silver_dir = tmp_path / "silver"
 
     called = {"fallback": False}
-    monkeypatch.setattr(spark_transform.SparkSession, "builder", _Builder())
-    monkeypatch.setattr(spark_transform, "Py4JJavaError", Exception)
+    # Monkeypatch pyspark.sql.SparkSession since it's imported inside the function
+    sys.modules['pyspark.sql'].SparkSession.builder = _Builder()
     monkeypatch.setattr(spark_transform.platform, "system", lambda: "Windows")
     monkeypatch.setattr(spark_transform, "_is_windows_nativeio_error", lambda _e: True)
     monkeypatch.setattr(
@@ -333,6 +338,7 @@ def test_transform_and_write_windows_fallback_branch(monkeypatch, tmp_path: Path
 
 
 def test_transform_and_write_reraises_non_windows_error(monkeypatch, tmp_path: Path) -> None:
+    import sys
     bronze = tmp_path / "bronze"
     (bronze / "books_csv").mkdir(parents=True)
     (bronze / "books_sql").mkdir(parents=True)
@@ -373,8 +379,9 @@ def test_transform_and_write_reraises_non_windows_error(monkeypatch, tmp_path: P
         bronze_dir = bronze
         silver_dir = tmp_path / "silver"
 
-    monkeypatch.setattr(spark_transform.SparkSession, "builder", _Builder())
-    monkeypatch.setattr(spark_transform, "Py4JJavaError", Exception)
+    # Monkeypatch pyspark.sql.SparkSession since it's imported inside the function
+    sys.modules['pyspark.sql'].SparkSession.builder = _Builder()
+    sys.modules['py4j.protocol'].Py4JJavaError = Exception
     monkeypatch.setattr(spark_transform.platform, "system", lambda: "Linux")
     monkeypatch.setattr(spark_transform, "_is_windows_nativeio_error", lambda _e: False)
 
@@ -392,6 +399,7 @@ def test_normalize_web_dataframe_pandas() -> None:
 
 
 def test_normalize_web_dataframe_spark(monkeypatch) -> None:
+    import sys
     class _Df:
         def __init__(self):
             self.columns = ["title", "ingestion_date"]
@@ -404,7 +412,7 @@ def test_normalize_web_dataframe_spark(monkeypatch) -> None:
         def select(self, *_args):
             return self
 
-    monkeypatch.setattr(spark_transform.F, "lit", lambda value: value)
+    sys.modules['pyspark.sql'].functions.lit = lambda value: value
     normalized = spark_transform._normalize_web_dataframe_spark(_Df())
     assert "category" in normalized.columns
 
@@ -435,6 +443,7 @@ def test_project_books_curated_pandas_uses_image_headers() -> None:
 
 
 def test_project_web_curated_spark(monkeypatch) -> None:
+    import sys
     class _Df:
         def __init__(self):
             self.columns = ["title", "ingestion_date"]
@@ -447,7 +456,7 @@ def test_project_web_curated_spark(monkeypatch) -> None:
         def select(self, *_args):
             return self
 
-    monkeypatch.setattr(spark_transform.F, "lit", lambda value: value)
+    sys.modules['pyspark.sql'].functions.lit = lambda value: value
     projected = spark_transform._project_web_curated_spark(_Df())
     assert "record_source" in projected.columns
     assert "image_url_s" in projected.columns

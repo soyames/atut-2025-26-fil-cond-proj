@@ -6,6 +6,7 @@ x-airflow-common: &airflow-common
     AIRFLOW__CORE__FERNET_KEY: ""
     AIRFLOW__CORE__LOAD_EXAMPLES: "false"
     AIRFLOW__WEBSERVER__DEFAULT_UI_TIMEZONE: UTC
+    PYTHONPATH: /opt/airflow
     AIRFLOW_UID: 50000
   volumes:
     - ./dags:/opt/airflow/dags
@@ -47,7 +48,7 @@ services:
   airflow-scheduler:
     <<: *airflow-common
     command: >
-      bash -c "pip install --no-cache-dir pandas requests beautifulsoup4 pyspark boto3 python-dotenv &&
+      bash -c "pip install --no-cache-dir pandas requests beautifulsoup4 boto3 python-dotenv &&
       airflow scheduler"
     depends_on:
       - airflow-init

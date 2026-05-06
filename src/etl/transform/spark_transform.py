@@ -5,14 +5,15 @@ from pathlib import Path
 import platform
 import re
 import shutil
+from typing import TYPE_CHECKING
 
 import pandas as pd
-from pyspark.sql import DataFrame, SparkSession
-from pyspark.sql import functions as F
-from py4j.protocol import Py4JJavaError
 
 from src.etl.config import ETLConfig
 from src.etl.logging_utils import get_logger
+
+if TYPE_CHECKING:
+    from pyspark.sql import DataFrame, SparkSession
 
 
 LOGGER = get_logger(__name__)
@@ -77,7 +78,8 @@ def normalize_year(value: str | int | None) -> int | None:
     return None
 
 
-def clean_books_csv(df: DataFrame) -> DataFrame:
+def clean_books_csv(df) -> "DataFrame":
+    from pyspark.sql import functions as F
     normalize_year_udf = F.udf(normalize_year, "int")
     return (
         df.withColumnRenamed("ISBN", "isbn")
@@ -186,7 +188,8 @@ def _project_web_curated_pandas(df: pd.DataFrame) -> pd.DataFrame:
     return projected[CURATED_COLUMNS]
 
 
-def _normalize_web_dataframe_spark(df: DataFrame) -> DataFrame:
+def _normalize_web_dataframe_spark(df) -> "DataFrame":
+    from pyspark.sql import functions as F
     normalized = df
     for column in WEB_COLUMNS:
         if column not in normalized.columns:
@@ -197,7 +200,8 @@ def _normalize_web_dataframe_spark(df: DataFrame) -> DataFrame:
     return normalized.select(*WEB_COLUMNS)
 
 
-def _project_books_curated_spark(df: DataFrame) -> DataFrame:
+def _project_books_curated_spark(df) -> "DataFrame":
+    from pyspark.sql import functions as F
     projected = (
         df.withColumn("record_source", F.lit("csv_sql"))
         .withColumn("category", F.lit("Unknown"))
@@ -221,7 +225,8 @@ def _project_books_curated_spark(df: DataFrame) -> DataFrame:
     return projected.select(*CURATED_COLUMNS)
 
 
-def _project_web_curated_spark(df: DataFrame) -> DataFrame:
+def _project_web_curated_spark(df) -> "DataFrame":
+    from pyspark.sql import functions as F
     projected = (
         df.withColumn("record_source", F.lit("web"))
         .withColumn("isbn", F.lit(""))
@@ -277,6 +282,10 @@ def _transform_windows_fallback(config: ETLConfig) -> None:
 
 
 def transform_and_write(config: ETLConfig) -> None:
+    from pyspark.sql import SparkSession
+    from pyspark.sql import functions as F
+    from py4j.protocol import Py4JJavaError
+
     config.silver_dir.mkdir(parents=True, exist_ok=True)
     csv_path = config.bronze_dir / "books_csv"
     sql_path = config.bronze_dir / "books_sql"
