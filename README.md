@@ -17,21 +17,6 @@ The pipeline runs in three stages:
 3. **Load**
    - Uploads curated outputs to MinIO (`lakehouse/curated/...`)
 
-## Repository structure
-
-```text
-.
-├── dags/                    Airflow DAGs
-├── scripts/                 Initialization and local run scripts
-├── src/etl/
-│   ├── extract/             Source extractors
-│   ├── transform/           Transformation logic
-│   ├── load/                MinIO loader
-│   └── jobs/                Pipeline entry points
-├── tests/                   Automated tests
-├── docker-compose.yml       Local platform (Airflow, Spark, MinIO, Postgres)
-└── Books.csv                Structured source file
-```
 
 ## Local quick start
 
